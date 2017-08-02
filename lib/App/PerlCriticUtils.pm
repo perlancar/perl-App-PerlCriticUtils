@@ -44,22 +44,29 @@ $SPEC{pcppath} = {
     args => {
         %arg_policies,
     },
+    examples => [
+        {
+            argv => ['Variables/ProhibitMatchVars'],
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
+    ],
 };
 sub pcppath {
     require Module::Path::More;
     my %args = @_;
 
-    my $pcps = $args{policies};
+    my $policies = $args{policies};
     my $res = [];
     my $found;
 
-    for my $pcp (@{$pcps}) {
+    for my $policy (@{$policies}) {
         my $mpath = Module::Path::More::module_path(
-            module      => "Perl::Critic::Policy::$pcp",
+            module      => "Perl::Critic::Policy::$policy",
         );
         $found++ if $mpath;
         for (ref($mpath) eq 'ARRAY' ? @$mpath : ($mpath)) {
-            push @$res, @$mods > 1 ? {policy=>$mod, path=>$_} : $_;
+            push @$res, @$policies > 1 ? {policy=>$policy, path=>$_} : $_;
         }
     }
 
@@ -79,6 +86,13 @@ $SPEC{pcpless} = {
     deps => {
         prog => 'less',
     },
+    examples => [
+        {
+            argv => ['Variables/ProhibitMatchVars'],
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
+    ],
 };
 sub pcpless {
     require Module::Path::More;
@@ -91,7 +105,7 @@ sub pcpless {
         system "less", $mpath;
         [200, "OK"];
     } else {
-        [404, "Can't find policy $mod"];
+        [404, "Can't find policy $policy"];
     }
 }
 
@@ -101,6 +115,13 @@ $SPEC{pcpcat} = {
     args => {
         %arg_policies,
     },
+    examples => [
+        {
+            argv => ['Variables/ProhibitMatchVars'],
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
+    ],
 };
 sub pcpcat {
     require Module::Path::More;
@@ -145,11 +166,46 @@ $SPEC{pcpdoc} = {
     args => {
         %arg_policy,
     },
+    deps => {
+        prog => 'perldoc',
+    },
+    examples => [
+        {
+            argv => ['Variables/ProhibitMatchVars'],
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
+    ],
 };
 sub pcpdoc {
     my %args = @_;
     my $policy = $args{policy};
     my @cmd = ("perldoc", "Perl::Critic::Policy::$policy");
+    exec @cmd;
+    # [200]; # unreachable
+}
+
+$SPEC{pcpman} = {
+    v => 1.1,
+    summary => 'Show manpage of Perl::Critic policy module',
+    args => {
+        %arg_policy,
+    },
+    deps => {
+        prog => 'man',
+    },
+    examples => [
+        {
+            argv => ['Variables/ProhibitMatchVars'],
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
+    ],
+};
+sub pcpman {
+    my %args = @_;
+    my $policy = $args{policy};
+    my @cmd = ("man", "Perl::Critic::Policy::$policy");
     exec @cmd;
     # [200]; # unreachable
 }

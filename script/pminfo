@@ -1,0 +1,78 @@
+#!perl
+
+# DATE
+# VERSION
+
+use 5.010;
+use strict;
+use warnings;
+use Log::ger;
+
+use App::PMUtils;
+use Perinci::CmdLine::Any;
+
+our %SPEC;
+$SPEC{pminfo} = {
+    v => 1.1,
+    summary => 'Get Perl module information',
+    description => <<'_',
+
+Will show this information about each Perl module:
+
+* path
+* version
+* number of lines of code
+*
+
+_
+    args => {
+        module => $App::PMUtils::arg_module_multiple,
+    },
+    result_naked => 1,
+};
+sub pminfo {
+    require Module::Load;
+    require Module::Path::More;
+
+    my %args = @_;
+    my $mods = $args{module};
+
+    my $res = [];
+    for my $mod (@$mods) {
+        $mod =~ s!/!::!g;
+        my $rec = {module=>$mod};
+        push @$res, $rec;
+        my $mpath = Module::Path::More::module_path(module=>$mod);
+        $rec->{path} = $mpath;
+        next unless $mpath;
+        # load to get $VERSION & $DATE
+        {
+            no strict 'refs';
+            Module::Load::load($mod);
+            $rec->{version} = ${"$mod\::VERSION"};
+            $rec->{date} = ${"$mod\::DATE"};
+        }
+        if (open my($fh), "<", $mpath) {
+            my $lines = 0; $lines++ while <$fh>;
+            $rec->{lines} = $lines;
+        }
+    }
+
+    $res;
+}
+
+Perinci::CmdLine::Any->new(
+    url => '/main/pminfo',
+)->run;
+
+# ABSTRACT:
+# PODNAME:
+
+=head1 SYNOPSIS
+
+ % pminfo Some::Module Another::Module
+
+
+=head1 SEE ALSO
+
+L<pmversion>

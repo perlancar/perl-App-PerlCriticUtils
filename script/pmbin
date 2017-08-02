@@ -1,0 +1,117 @@
+#!perl
+
+# DATE
+# VERSION
+
+use 5.010;
+use strict;
+use warnings;
+
+use App::PMUtils;
+use Perinci::CmdLine::Any;
+
+our %SPEC;
+$SPEC{pmbin} = {
+    v => 1.1,
+    summary => 'List scripts that come with the same distribution '.
+        'of a Perl module',
+    description => <<'_',
+
+Does this happen often with you: you install a CPAN module:
+
+    % cpanm -n Finance::Bank::ID::BCA
+
+The CPAN distribution is supposed to contain some CLI utilities, but it is not
+obvious what the name is. So you do:
+
+    % man Finance::Bank::ID::BCA
+
+to find out, and even the module's POD doesn't give the name of the utility
+sometimes. You might even open your browser and go to MetaCPAN. Or
+download+extract+view the tarball just to find out.
+
+Now there's a simpler alternative:
+
+    % pmbin Finance::Bank::ID::BCA
+    download-bca
+    parse-bca-statement
+
+Show full path, process multiple modules at once:
+
+    % pmbin -P Finance/Bank/ID/BCA Finance::Bank::ID::Mandiri
+    /home/user/perl5/perlbrew/perls/perl-5.18.2/bin/download-bca
+    /home/user/perl5/perlbrew/perls/perl-5.18.2/bin/parse-bca-statement
+    /home/user/perl5/perlbrew/perls/perl-5.18.2/bin/download-mandiri
+    /home/user/perl5/perlbrew/perls/perl-5.18.2/bin/parse-mandiri-statement
+
+You even get tab completion for free.
+
+<prog:pmbin> works by locating the `.packlist` file for the module (which contains
+the list of installed files) and filter only the `/(bin,scripts?)/` ones.
+
+_
+    args => {
+        module => $App::PMUtils::arg_module_multiple,
+        full_path => {
+            summary => 'Show full path instead of just filenames',
+            schema => 'bool',
+            cmdline_aliases => {P=>{}},
+        },
+    },
+};
+sub pmbin {
+    require Dist::Util;
+    my %args = @_;
+
+    my $mods = $args{module};
+    my $res = [];
+
+    my $has_ok;
+    my $has_nok;
+    for my $mod (@{$mods}) {
+        my $path = Dist::Util::packlist_for($mod);
+        unless ($path && (-f $path)) {
+            $has_nok++;
+            next;
+        }
+
+        $has_ok++;
+        open my $fh, "<", $path or do {
+            warn "Can't open $path: $!\n";
+            next;
+        };
+        for (<$fh>) {
+            chomp;
+            next unless m!/(bin|scripts?)/!;
+            s!.+/!! unless $args{full_path};
+            push @$res, $_;
+        }
+    }
+
+    if ($has_ok && $has_nok) {
+        [207, "Some OK", $res];
+    } elsif ($has_ok) {
+        [200, "All OK", $res];
+    } elsif ($has_nok) {
+        [404, "Can't find .packlist for module(s)"];
+    } else {
+        [200, "No items"];
+    }
+}
+
+Perinci::CmdLine::Any->new(
+    url => '/main/pmbin',
+)->run;
+
+# ABSTRACT:
+# PODNAME:
+
+=head1 SYNOPSIS
+
+Basic usage:
+
+ % pmbin Some::Module
+
+Return full path instead of just names:
+
+ % pmbin -P Some::Module

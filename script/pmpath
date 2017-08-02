@@ -1,0 +1,37 @@
+#!perl
+
+# DATE
+# VERSION
+
+use 5.010;
+use strict;
+use warnings;
+
+use App::PMUtils;
+use Perinci::CmdLine::Any;
+
+our %SPEC;
+
+Perinci::CmdLine::Any->new(
+    url => '/App/PMUtils/pmpath',
+)->run;
+
+# ABSTRACT: Get path to locally installed Perl module
+# PODNAME:
+
+=head1 SYNOPSIS
+
+Basic usage:
+
+ % pmpath Some::Module
+
+Find all modules (-a), return absolute paths (-P):
+
+ % pmpath -aP Some::Module Another::Mod
+
+# INSERT_BLOCK: script/pmdir protip_cdpm
+
+
+=head1 SEE ALSO
+
+L<pmdir>

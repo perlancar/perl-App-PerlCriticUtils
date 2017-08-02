@@ -1,0 +1,96 @@
+#!perl
+
+# DATE
+# VERSION
+
+use 5.010;
+use strict;
+use warnings;
+use Log::ger;
+
+use App::PMUtils;
+use ExtUtils::MakeMaker;
+use Perinci::CmdLine::Any;
+
+our %SPEC;
+$SPEC{pmversion} = {
+    v => 1.1,
+    summary => 'Get Perl module version',
+    description => <<'_',
+_
+    args => {
+        module => $App::PMUtils::arg_module_multiple,
+        method => {
+            schema => ['str*', in=>[qw/load mm/]],
+            default => 'mm',
+            description => <<'_',
+
+`load` means to load the module and read the package variable `$VERSION`. This
+means you have to actually execute the module's source code.
+
+`mm` means using <pm:ExtUtils::MakeMaker>'s `MM->parse_version`. This uses
+simple regex over the module's source code and does not require you to actually
+execute the source code.
+
+_
+        },
+    },
+};
+sub pmversion {
+    require Module::Path::More;
+
+    my %args = @_;
+    my $mods = $args{module};
+    my $meth = $args{method} // 'mm';
+
+    my $found;
+    my $res = [];
+    for my $mod (@$mods) {
+        $mod =~ s!/!::!g;
+        my $mpath = Module::Path::More::module_path(module=>$mod);
+        unless ($mpath) {
+            push @$res, "Module $mod is not installed";
+            next;
+        }
+        $found++;
+
+        my $v;
+        if ($meth eq 'load') {
+            require Module::Load;
+            no strict 'refs';
+            Module::Load::load($mod);
+            $v = ${"$mod\::VERSION"};
+        } else {
+            $v = MM->parse_version($mpath);
+            $v = undef if defined($v) && $v eq 'undef';
+        }
+
+        if (defined $v) {
+            push @$res, (@$mods > 1 ? "$mod $v" : $v);
+        } else {
+            push @$res, "Module $mod does not define \$VERSION";
+        }
+    }
+
+    if (!$found) {
+        [404, "No such module(s): " . join(", ", @$mods)];
+    } else {
+        [200, "OK", $res];
+    }
+}
+
+Perinci::CmdLine::Any->new(
+    url => '/main/pmversion',
+)->run;
+
+# ABSTRACT:
+# PODNAME:
+
+=head1 SYNOPSIS
+
+ % pmversion Some::Module Another::Module
+
+
+=head1 SEE ALSO
+
+L<pminfo>

@@ -1,0 +1,58 @@
+#!perl
+
+# DATE
+# VERSION
+
+use 5.010;
+use strict;
+use warnings;
+
+use App::PMUtils;
+use Perinci::CmdLine::Any;
+
+our %SPEC;
+$SPEC{pmxs} = {
+    v => 1.1,
+    summary => 'Check whether an installed Perl module is XS/pure-perl',
+    args => {
+        module => $App::PMUtils::arg_module_multiple,
+    },
+};
+sub pmxs {
+    require Module::XSOrPP;
+
+    my %args = @_;
+
+    my $mods = $args{module};
+    my $res = [];
+    my $found;
+
+    for my $mod (@{$mods}) {
+        my $fres = Module::XSOrPP::xs_or_pp($mod);
+        $found++ if defined $fres;
+        $fres = uc($fres // '?');
+        push @$res, @$mods > 1 ? {
+            module=>$mod,
+            xs=>$fres,
+        } : $fres;
+    }
+
+    if ($found) {
+        [200, "OK", $res];
+    } else {
+        [404, "No such module"];
+    }
+}
+
+Perinci::CmdLine::Any->new(
+    url => '/main/pmxs',
+)->run;
+
+# ABSTRACT:
+# PODNAME:
+
+=head1 SYNOPSIS
+
+Basic usage:
+
+ % pmxs Some::Module

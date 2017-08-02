@@ -1,0 +1,138 @@
+#!perl
+
+# DATE
+# VERSION
+
+use 5.010;
+use strict;
+use warnings;
+
+use App::PMUtils;
+use Perinci::CmdLine::Any;
+
+our %SPEC;
+$SPEC{pmchkver} = {
+    v => 1.1,
+    summary => "Check local module's version against version on CPAN",
+    args => {
+        module => $App::PMUtils::arg_module_multiple,
+        detail => {
+            summary => 'Show detail records intead of just module names',
+            schema => 'bool',
+        },
+        latest => {
+            summary => 'Only show module when it is the latest version',
+            'summary.alt.bool.not' => 'Only show module when it is not the latest version',
+            schema => 'bool',
+            tags => ['category:filtering'],
+        },
+        installed => {
+            summary => 'Only show module when it is installed locally',
+            'summary.alt.bool.not' => 'Only show module when it is not installed locally',
+            schema => 'bool',
+            tags => ['category:filtering'],
+        },
+        on_cpan => {
+            summary => 'Only show module when it is on CPAN',
+            'summary.alt.bool.not' => 'Only show module when it is not on CPAN',
+            schema => 'bool',
+            tags => ['category:filtering'],
+        },
+    },
+};
+sub pmchkver {
+    no strict 'refs';
+    require HTTP::Tiny;
+    require JSON::MaybeXS;
+    require Module::Path::More;
+
+    my %args = @_;
+
+    my $mods = $args{module};
+
+    my @recs;
+    for my $mod (@{$mods}) {
+        #say "D:Checking $mod ...";
+        my $rec = {
+            module => $mod,
+            cpan_version => undef,
+            local_version => undef,
+            installed => undef,
+            on_cpan => undef,
+            latest => undef,
+        };
+
+        my $mpath = Module::Path::More::module_path(module => $mod);
+        if (!$mpath) {
+            $rec->{installed} = 0;
+        } else {
+            $rec->{installed} = 1;
+            my $mod_pm = $mod; $mod_pm =~ s!::!/!g; $mod_pm .= ".pm";
+            eval { require $mod_pm };
+            if ($@) {
+                $rec->{note} = "Can't load local module";
+            } else {
+                $rec->{local_version} = ${"$mod\::VERSION"};
+            }
+        }
+        next if defined($args{installed}) && ($args{installed} xor $rec->{installed});
+
+        {
+            my $apires = HTTP::Tiny->new->get("http://fastapi.metacpan.org/v1/module/$mod?fields=version");
+            unless ($apires->{success}) {
+                $rec->{note} = "Failed API request (1): $apires->{status} - $apires->{reason}";
+                last;
+            }
+            eval { $apires = JSON::MaybeXS::decode_json($apires->{content}) };
+            if ($@) {
+                $rec->{note} = "Invalid API response: not valid JSON: $@";
+                last;
+            }
+            if ($apires->{message}) {
+                if ($apires->{code} == 404) {
+                    $rec->{on_cpan} = 0;
+                    last;
+                } else {
+                    $rec->{note} = "Failed API request (2): $apires->{code} - $apires->{message}";
+                    last;
+                }
+            }
+            $rec->{on_cpan} = 1;
+            $rec->{cpan_version} = $apires->{version};
+        }
+        next if defined($args{on_cpan}) && ($args{on_cpan} xor $rec->{on_cpan});
+
+        $rec->{latest} = defined($rec->{local_version}) &&
+            defined($rec->{cpan_version}) &&
+            version->parse($rec->{local_version}) >= version->parse($rec->{cpan_version}) ? 1:0;
+        next if defined($args{latest}) && ($args{latest} xor $rec->{latest});
+
+        push @recs, $rec;
+    }
+
+    [200, "OK", $args{detail} ? \@recs : [map {$_->{latest}} @recs],
+     {'table.fields' => [qw/module local_version cpan_version installed on_cpan latest/]}];
+}
+
+Perinci::CmdLine::Any->new(
+    url => '/main/pmchkver',
+)->run;
+
+# ABSTRACT:
+# PODNAME:
+
+=head1 SYNOPSIS
+
+Basic usage:
+
+ % pmchkver Some::Module Another::Module
+
+Will return 1 or 0 for each module, depending on whether the corresponding
+installed module is the latest version on CPAN.
+
+When C<--detail> is given, will give more detailed information.
+
+
+=head1 SEE ALSO
+
+L<Module::CheckVersion>

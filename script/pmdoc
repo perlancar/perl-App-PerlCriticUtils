@@ -1,0 +1,57 @@
+#!perl
+
+# DATE
+# VERSION
+
+use 5.010;
+use strict;
+use warnings;
+
+use App::PMUtils;
+use Perinci::CmdLine::Any;
+
+our %SPEC;
+$SPEC{pmdoc} = {
+    v => 1.1,
+    summary => 'Show documentation of Perl module',
+    description => <<'_',
+
+This function executes <prog:perldoc>. Basically what it offers is command-line
+completion.
+
+_
+    args => {
+        module => $App::PMUtils::arg_module_single,
+    },
+    deps => {
+        prog => 'perldoc',
+    },
+};
+sub pmdoc {
+    my %args = @_;
+    my $mod = $args{module};
+    $mod =~ s!/!::!g;
+    my @cmd = ("perldoc", $mod);
+    exec @cmd;
+    # [200]; # unreachable
+}
+
+Perinci::CmdLine::Any->new(
+    url => '/main/pmdoc',
+)->run;
+
+# ABSTRACT:
+# PODNAME:
+
+=head1 SYNOPSIS
+
+Basic usage:
+
+ % pmdoc Some::Module
+
+
+=head1 SEE ALSO
+
+L<pmman>, L<pmhtml>
+
+L<lcpan> (C<doc> subcommand)

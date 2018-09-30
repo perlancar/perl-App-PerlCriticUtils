@@ -38,6 +38,63 @@ our %arg_policy = (
     },
 );
 
+our %argopt_detail = (
+    detail => {
+        schema => 'bool*',
+        cmdline_aliases => {l=>{}},
+    },
+);
+
+$SPEC{pcplist} = {
+    v => 1.1,
+    summary => 'List installed Perl::Critic policy modules',
+    args => {
+        %argopt_detail,
+    },
+    examples => [
+        {
+            summary => 'List installed policies',
+            argv => [],
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
+        {
+            summary => 'List installed policies (show details)',
+            argv => ['-l'],
+            test => 0,
+            'x.doc.show_result' => 0,
+        },
+    ],
+};
+sub pcplist {
+    require PERLANCAR::Module::List;
+
+    my %args = @_;
+
+    my $mods = PERLANCAR::Module::List::list_modules(
+        'Perl::Critic::Policy::', {list_modules=>1, recurse=>1});
+    my @rows;
+    my $resmeta = {};
+    for my $mod (sort keys %$mods) {
+        (my $name = $mod) =~ s/^Perl::Critic::Policy:://;
+        if ($args{detail}) {
+            require Module::Path::More;
+            my $path = Module::Path::More::module_path(module => $mod);
+            open my $fh, "<", $path or die "Can't read $path: $!";
+            my $content = do { local $/; <$fh> };
+            $content =~ m{ =head1 \s+ Name \s* [\n] \s* $mod \s* [\-] \s* ([^\n]+) }imsx;
+            push @rows, {
+                name => $name,
+                abstract => $1,
+            };
+        } else {
+            push @rows, $name;
+        }
+    }
+    $resmeta->{'table.fields'} = [qw/name abstract/] if $args{detail};
+    [200, "OK", \@rows, $resmeta];
+}
+
 $SPEC{pcppath} = {
     v => 1.1,
     summary => 'Get path to locally installed Perl::Critic policy module',

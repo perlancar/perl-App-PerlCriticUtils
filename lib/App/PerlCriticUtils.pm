@@ -1,11 +1,13 @@
 package App::PerlCriticUtils;
 
-# DATE
-# VERSION
-
 use 5.010001;
 use strict;
 use warnings;
+
+# AUTHORITY
+# DATE
+# DIST
+# VERSION
 
 our %SPEC;
 
@@ -78,14 +80,10 @@ sub pcplist {
     for my $mod (sort keys %$mods) {
         (my $name = $mod) =~ s/^Perl::Critic::Policy:://;
         if ($args{detail}) {
-            require Module::Path::More;
-            my $path = Module::Path::More::module_path(module => $mod);
-            open my $fh, "<", $path or die "Can't read $path: $!";
-            my $content = do { local $/; <$fh> };
-            $content =~ m{ =head1 \s+ Name \s* [\n] \s* $mod \s* [\-] \s* ([^\n]+) }imsx;
+            require Module::Abstract;
             push @rows, {
                 name => $name,
-                abstract => $1,
+                abstract => Module::Abstract::module_abstract($mod),
             };
         } else {
             push @rows, $name;

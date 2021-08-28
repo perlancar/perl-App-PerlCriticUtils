@@ -58,13 +58,11 @@ $SPEC{pcplist} = {
             summary => 'List installed policies',
             argv => [],
             test => 0,
-            'x.doc.show_result' => 0,
         },
         {
             summary => 'List installed policies (show details)',
             argv => ['-l'],
             test => 0,
-            'x.doc.show_result' => 0,
         },
     ],
 };
@@ -103,7 +101,6 @@ $SPEC{pcppath} = {
         {
             argv => ['Variables/ProhibitMatchVars'],
             test => 0,
-            'x.doc.show_result' => 0,
         },
     ],
 };

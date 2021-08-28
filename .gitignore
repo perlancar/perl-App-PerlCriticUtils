@@ -2,3 +2,4 @@ App-PerlCriticUtils-*
 .build
 *~
 nytprof*
+.DS_Store

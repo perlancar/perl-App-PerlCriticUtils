@@ -52,6 +52,11 @@ $SPEC{pcplist} = {
     summary => 'List installed Perl::Critic policy modules',
     args => {
         %argopt_detail,
+        query => {
+            schema => ['array*', of=>'str*'],
+            pos => 0,
+            slurpy => 1,
+        },
     },
     examples => [
         {
@@ -64,28 +69,52 @@ $SPEC{pcplist} = {
             argv => ['-l'],
             test => 0,
         },
+        {
+            summary => "What's that policy that prohibits returning undef explicitly?",
+            argv => ["undef"],
+            test => 0,
+        },
+        {
+            summary => "What's that policy that requires using strict?",
+            argv => ["req", "strict"],
+            test => 0,
+        },
     ],
 };
 sub pcplist {
     require PERLANCAR::Module::List;
 
     my %args = @_;
+    my $query = $args{query} // [];
 
     my $mods = PERLANCAR::Module::List::list_modules(
         'Perl::Critic::Policy::', {list_modules=>1, recurse=>1});
     my @rows;
     my $resmeta = {};
+  MOD:
     for my $mod (sort keys %$mods) {
         (my $name = $mod) =~ s/^Perl::Critic::Policy:://;
+        my $str;
+        my $row;
         if ($args{detail}) {
             require Module::Abstract;
-            push @rows, {
+            $row = {
                 name => $name,
                 abstract => Module::Abstract::module_abstract($mod),
             };
+            $str = lc join(" ", $row->{name}, $row->{abstract});
         } else {
-            push @rows, $name;
+            $row = $name;
+            $str = lc $name;
         }
+
+        if (@$query) {
+            for my $q (@$query) {
+                next MOD unless index($str, $q) >= 0;
+            }
+        }
+
+        push @rows, $row;
     }
     $resmeta->{'table.fields'} = [qw/name abstract/] if $args{detail};
     [200, "OK", \@rows, $resmeta];

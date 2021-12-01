@@ -91,6 +91,75 @@ sub pcplist {
     [200, "OK", \@rows, $resmeta];
 }
 
+$SPEC{pcpgrep} = {
+    v => 1.1,
+    summary => 'Grep from list of installed Perl::Critic policy module names (abstracts, ...)',
+    description => <<'_',
+
+I can never remember the names of the policies, hence this utility. It's a
+convenience shortcut for:
+
+    % pcplist | grep SOMETHING
+    % pcplist -l | grep SOMETHING
+
+Note that pcplist also can filter:
+
+    % pcplist undef
+    % pcplist req strict
+_
+    args => {
+        query => {
+            schema => ['array*', of=>'str*'],
+            req => 1,
+            pos => 0,
+            slurpy => 1,
+        },
+        ignore_case => {
+            summary => 'Defaults to true for convenience',
+            schema => 'bool*',
+            default => 1,
+        },
+    },
+    examples => [
+        {
+            summary => "What's that policy that prohibits returning undef explicitly?",
+            argv => ["undef"],
+            test => 0,
+        },
+        {
+            summary => "What's that policy that requires using strict?",
+            argv => ["req", "strict"],
+            test => 0,
+        },
+    ],
+};
+sub pcpgrep {
+    require PERLANCAR::Module::List;
+
+    my %args = @_;
+    my $query = $args{query} or return [400, "Please specify query"];
+    my $ignore_case = $args{ignore_case} // 1;
+
+    my $listres = pcplist(detail=>1);
+    my $grepres = [$listres->[0], $listres->[1], [], $listres->[3]];
+
+    for my $row (@{ $listres->[2] }) {
+        my $str = join(" ", $row->{name}, $row->{abstract});
+        my $match = 1;
+        for my $q (@$query) {
+            if ($ignore_case) {
+                do { $match = 0; last } unless index(lc($str), lc($q)) >= 0;
+            } else {
+                do { $match = 0; last } unless index($str, $q) >= 0;
+            }
+        }
+        next unless $match;
+        push @{$grepres->[2]}, $row;
+    }
+
+    $grepres;
+}
+
 $SPEC{pcppath} = {
     v => 1.1,
     summary => 'Get path to locally installed Perl::Critic policy module',

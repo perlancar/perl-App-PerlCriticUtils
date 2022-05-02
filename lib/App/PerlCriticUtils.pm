@@ -96,6 +96,13 @@ sub pcplist {
         (my $name = $mod) =~ s/^Perl::Critic::Policy:://;
         my $str;
         my $row;
+
+        if (@$query) {
+            for my $q (@$query) {
+                next MOD unless index($str, $q) >= 0;
+            }
+        }
+
         if ($args{detail}) {
             require Module::Abstract;
             $row = {
@@ -106,12 +113,6 @@ sub pcplist {
         } else {
             $row = $name;
             $str = lc $name;
-        }
-
-        if (@$query) {
-            for my $q (@$query) {
-                next MOD unless index($str, $q) >= 0;
-            }
         }
 
         push @rows, $row;

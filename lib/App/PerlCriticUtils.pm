@@ -53,9 +53,23 @@ $SPEC{pcplist} = {
     args => {
         %argopt_detail,
         query => {
+            summary => "Filter by name",
             schema => ['array*', of=>'str*'],
             pos => 0,
             slurpy => 1,
+            tags => ['category:filtering'],
+        },
+        default_severity => {
+            schema => ['uint*'],
+            tags => ['category:filtering'],
+        },
+        min_default_severity => {
+            schema => ['uint*'],
+            tags => ['category:filtering'],
+        },
+        max_default_severity => {
+            schema => ['uint*'],
+            tags => ['category:filtering'],
         },
     },
     examples => [
@@ -79,6 +93,17 @@ $SPEC{pcplist} = {
             argv => ["req", "strict"],
             test => 0,
         },
+
+        {
+            summary => "List policies which have default severity of 5",
+            argv => ["--default-severity=5", "-l"],
+            test => 0,
+        },
+        {
+            summary => "List policies which have default severity between 4 and 5",
+            argv => ["--min-default-severity=4", "--max-default-severity=5", "-l"],
+            test => 0,
+        },
     ],
 };
 sub pcplist {
@@ -94,28 +119,50 @@ sub pcplist {
   MOD:
     for my $mod (sort keys %$mods) {
         (my $name = $mod) =~ s/^Perl::Critic::Policy:://;
-        my $str;
-        my $row;
 
+        my $row = {
+            name => $name,
+        };
+
+        my $str;
+
+        if ($args{detail} || @$query) {
+            require Module::Abstract;
+            $row->{abstract} = Module::Abstract::module_abstract($mod);
+            $str = lc join(" ", $row->{name}, $row->{abstract});
+        } else {
+            $str = lc $name;
+        }
+
+        # filter by query
         if (@$query) {
             for my $q (@$query) {
                 next MOD unless index($str, $q) >= 0;
             }
         }
 
-        if ($args{detail}) {
-            require Module::Abstract;
-            $row = {
-                name => $name,
-                abstract => Module::Abstract::module_abstract($mod),
-            };
-            $str = lc join(" ", $row->{name}, $row->{abstract});
-        } else {
-            $row = $name;
-            $str = lc $name;
+        if ($args{detail} ||
+            defined($args{default_severity}) ||
+            defined($args{min_default_severity}) ||
+            defined($args{max_default_severity})
+        ) {
+            (my $modpm = "$mod.pm") =~ s!::!/!g;
+            require $modpm;
+            $row->{default_severity} = $mod->default_severity;
+
+            # filter by default_severity
+            next MOD if defined $args{default_severity} && $row->{default_severity} != $args{default_severity};
+            # filter by min_default_severity
+            next MOD if defined $args{min_default_severity} && $row->{default_severity} < $args{min_default_severity};
+            # filter by max_default_severity
+            next MOD if defined $args{max_default_severity} && $row->{default_severity} > $args{max_default_severity};
+
+            $row->{supported_parameters} = join(", ", map {$_->{name}} $mod->supported_parameters);
+            $row->{default_themes} = join(", ", $mod->default_themes);
+            $row->{applies_to} = $mod->applies_to;
         }
 
-        push @rows, $row;
+        push @rows, $args{detail} ? $row : $row->{name};
     }
     $resmeta->{'table.fields'} = [qw/name abstract/] if $args{detail};
     [200, "OK", \@rows, $resmeta];

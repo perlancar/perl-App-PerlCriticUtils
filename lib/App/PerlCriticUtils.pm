@@ -105,6 +105,12 @@ $SPEC{pcplist} = {
             test => 0,
         },
     ],
+    links => [
+        {
+            url => 'prog:perlcritic',
+            summary => 'The `perlcritic` CLI also has a `--list` option to list all policies',
+        },
+    ],
 };
 sub pcplist {
     require PERLANCAR::Module::List;
